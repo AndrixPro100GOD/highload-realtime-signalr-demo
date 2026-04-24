@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("highload-realtime-signalr-demo")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+253cea72d3131f42222528641151c235c4dd546e")]
 [assembly: System.Reflection.AssemblyProductAttribute("highload-realtime-signalr-demo")]
 [assembly: System.Reflection.AssemblyTitleAttribute("highload-realtime-signalr-demo")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -5,7 +5,7 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
   "mainAssemblyName": "highload-realtime-signalr-demo",
   "applicationEnvironment": "Development",
   "resources": {
-    "hash": "sha256-m2oo42VhT+z48A65y4tgO57qihZiJMnwX3oNti+VpHA=",
+    "hash": "sha256-A6g5KqW335uuGrVwf812UpIqg/4uZGTIc9Sz+NWJP2U=",
     "jsModuleNative": [
       {
         "name": "dotnet.native.3qf6w265iu.js"
@@ -1260,16 +1260,16 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
       },
       {
         "virtualPath": "highload-realtime-signalr-demo.wasm",
-        "name": "highload-realtime-signalr-demo.e7fj94pffc.wasm",
-        "integrity": "sha256-ulwsLjZIcP9fVJYWOOmIxENnu56ORMuXHDw5Qj2dZgo=",
+        "name": "highload-realtime-signalr-demo.4abfqmsve0.wasm",
+        "integrity": "sha256-JCfjgAVtoOa/7JDudis47KHgPB6zrO+Z4oS0r3/7eCA=",
         "cache": "force-cache"
       }
     ],
     "pdb": [
       {
         "virtualPath": "highload-realtime-signalr-demo.pdb",
-        "name": "highload-realtime-signalr-demo.c4xqjyxfkj.pdb",
-        "integrity": "sha256-LLU6Y3jKwvkIrZAsrKCDJW13K6KIK3itciXf5Cm5JVo=",
+        "name": "highload-realtime-signalr-demo.ibm2bd3ii4.pdb",
+        "integrity": "sha256-fsyV5Hn+s1pEXqv6eoHfVso0JXO3l38JLGHBLJUl5KU=",
         "cache": "force-cache"
       }
     ],

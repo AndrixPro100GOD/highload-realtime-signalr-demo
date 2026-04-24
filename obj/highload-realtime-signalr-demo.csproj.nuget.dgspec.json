@@ -31,7 +31,6 @@
         },
         "frameworks": {
           "net10.0": {
-            "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {}
           }
@@ -50,7 +49,6 @@
       },
       "frameworks": {
         "net10.0": {
-          "framework": "net10.0",
           "targetAlias": "net10.0",
           "dependencies": {
             "Microsoft.AspNetCore.App.Internal.Assets": {
@@ -67,11 +65,6 @@
               "suppressParent": "All",
               "target": "Package",
               "version": "[10.*, )"
-            },
-            "Microsoft.DotNet.HotReload.WebAssembly.Browser": {
-              "target": "Package",
-              "version": "[10.0.202, )",
-              "autoReferenced": true
             },
             "Microsoft.NET.ILLink.Tasks": {
               "suppressParent": "All",

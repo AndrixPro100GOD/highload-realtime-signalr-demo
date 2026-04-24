@@ -1,0 +1,18 @@
+---
+description: Контекст highload-realtime-signalr-demo и обязательное чтение последних изменений
+alwaysApply: true
+---
+
+# Проект и недавние правки
+
+## Обязательно
+
+Перед **существенными** правками (архитектура, Docker, SignalR, Redis, нагрузка, структура репо) открой и учти содержимое файла **`docs/project-context.md`**: там цель репозитория, текущее состояние стека и секция **«Последние изменения»** (хронология правок).
+
+## Суть проекта (кратко)
+
+Портфолио-демо **high-load real-time** на **.NET**: цель — SignalR + scale-out (Redis backplane), observability; сейчас в коде в основном **Blazor WebAssembly** + **MudBlazor**, **Docker** (nginx + compose с Redis). Подробности: `README.md`, `docs/architecture.md`, `adr/0001-use-signalr-with-redis-backplane.md`.
+
+## После своих изменений
+
+Если ты внёс заметные изменения в поведение, стек или инфраструктуру — **добавь короткую запись** в `docs/project-context.md` в «Последние изменения» (дата, 1–3 пункта, что сделано).
