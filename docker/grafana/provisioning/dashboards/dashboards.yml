@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: HighloadSignalR
+    orgId: 1
+    folder: Highload SignalR
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

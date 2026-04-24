@@ -1,0 +1,94 @@
+@page "/realtime"
+
+<PageTitle>Realtime</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4">Realtime smoke & perf client</MudText>
+        <MudText Typo="Typo.body1" Class="mt-2">
+            Страница подключается к SignalR Hub через MessagePack и позволяет вручную проверить broadcast, groups,
+            targeted delivery и server-side batching.
+        </MudText>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" md="3">
+            <MudPaper Class="pa-4 h-100">
+                <MudText Typo="Typo.subtitle2">Статус</MudText>
+                <MudChip T="string" Color="@StatusColor" Variant="Variant.Filled" Class="mt-2">@StatusText</MudChip>
+                <MudText Typo="Typo.body2" Class="mt-4">Node: @(ControlEvent?.NodeId ?? "n/a")</MudText>
+                <MudText Typo="Typo.body2">ConnectionId: @(HubClient.ConnectionId ?? "n/a")</MudText>
+                <MudText Typo="Typo.body2">Active: @(ControlEvent?.ActiveConnections ?? 0)</MudText>
+                <MudText Typo="Typo.body2">Queue depth: @(ControlEvent?.QueueDepth ?? 0)</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="9">
+            <MudPaper Class="pa-4">
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudTextField @bind-Value="_senderId" Label="Sender ID" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudTextField @bind-Value="_groupName" Label="Group" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudTextField @bind-Value="_targetConnectionId" Label="Target connection" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_payload" Label="Payload" Variant="Variant.Outlined" Lines="3" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-4" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConnectAsync" Disabled="@HubClient.IsConnected">Connect</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="DisconnectAsync" Disabled="@(!HubClient.IsConnected)">Disconnect</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Info" OnClick="JoinGroupAsync" Disabled="@(!HubClient.IsConnected)">Join group</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Info" OnClick="LeaveGroupAsync" Disabled="@(!HubClient.IsConnected)">Leave group</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="SendBroadcastAsync" Disabled="@(!HubClient.IsConnected)">Broadcast</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="SendGroupAsync" Disabled="@(!HubClient.IsConnected)">Group</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="QueueGroupAsync" Disabled="@(!HubClient.IsConnected)">Queue group</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Dark" OnClick="SendTargetedAsync" Disabled="@(!HubClient.IsConnected)">Targeted</MudButton>
+                </MudStack>
+
+                <MudAlert Severity="@AlertSeverity" Class="mt-4">
+                    @_lastAckMessage
+                </MudAlert>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h6">Последние сообщения</MudText>
+        @if (RecentMessages.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="mt-2">Пока сообщений нет. Подключитесь и отправьте тестовый payload.</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true" Class="mt-3">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Kind</th>
+                        <th>Group</th>
+                        <th>Node</th>
+                        <th>Payload</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in RecentMessages)
+                    {
+                        <tr>
+                            <td>@item.DeliveredAtUtc.ToLocalTime().ToString("HH:mm:ss.fff")</td>
+                            <td>@item.Kind</td>
+                            <td>@(string.IsNullOrWhiteSpace(item.GroupName) ? "-" : item.GroupName)</td>
+                            <td>@item.NodeId</td>
+                            <td>@item.Payload</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudPaper>
+</MudStack>

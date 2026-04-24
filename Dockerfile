@@ -1,21 +1,27 @@
-# Многостадийная сборка: SDK собирает Blazor WASM, nginx раздаёт только wwwroot (легковесный рантайм для демо).
+# Многостадийная сборка: публикуем hosted Blazor WASM + ASP.NET Core SignalR server в один контейнер.
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Копируем проект и восстанавливаем зависимости отдельным слоем для кэша Docker.
-COPY highload-realtime-signalr-demo.csproj .
-RUN dotnet restore highload-realtime-signalr-demo.csproj
+# Кэшируем restore отдельно от исходников, чтобы ускорить rebuild.
+COPY highload-realtime-signalr-demo.csproj ./
+COPY Shared/Shared.csproj Shared/
+COPY Server/Server.csproj Server/
+COPY LoadTester/LoadTester.csproj LoadTester/
+
+RUN dotnet restore Server/Server.csproj
 
 COPY . .
-RUN dotnet publish highload-realtime-signalr-demo.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish Server/Server.csproj -c Release -o /app/publish --no-restore
 
-FROM nginx:1.27-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
 
-# Убираем дефолтный конфиг, подключаем свой (SPA + кэш ассетов).
-RUN rm /etc/nginx/conf.d/default.conf
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# TLS и sticky sessions делает Traefik; контейнеру достаточно одного HTTP listener.
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+ENV DOTNET_EnableDiagnostics=0
 
-COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
+COPY --from=build /app/publish .
 
-EXPOSE 80
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "Server.dll"]

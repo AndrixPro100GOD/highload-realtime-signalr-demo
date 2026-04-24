@@ -2,13 +2,18 @@
 
 <PageTitle>Home</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Hello, world!</MudText>
-<MudText Class="mb-8">Welcome to your new app, powered by MudBlazor and the .NET 10 Template!</MudText>
+<MudText Typo="Typo.h3" GutterBottom="true">High-load SignalR demo</MudText>
+<MudText Class="mb-8">
+    Этот клиент работает поверх hosted Blazor WASM и предназначен для smoke-проверки MessagePack Hub,
+    Redis backplane, batching и метрик.
+</MudText>
 
 
 <MudAlert Severity="Severity.Normal" ContentAlignment="HorizontalAlignment.Start">
-    You can find documentation and examples on our website here:
-    <MudLink Href="https://mudblazor.com" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        <b>www.mudblazor.com</b>
+    Откройте страницу <MudLink Href="/realtime" Typo="Typo.body2" Color="Color.Primary"><b>/realtime</b></MudLink>,
+    чтобы вручную проверить подключение, группы и отправку сообщений.
+    Полная инструкция по нагрузке и observability будет описана в README и docs/performance.md.
+    <MudLink Href="https://mudblazor.com" Target="_blank" Typo="Typo.body2" Color="Color.Primary" Class="ml-2">
+        <b>MudBlazor</b>
     </MudLink>
 </MudAlert>

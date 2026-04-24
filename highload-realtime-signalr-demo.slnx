@@ -1,3 +1,6 @@
 <Solution>
   <Project Path="highload-realtime-signalr-demo.csproj" />
+  <Project Path="LoadTester/LoadTester.csproj" />
+  <Project Path="Server/Server.csproj" />
+  <Project Path="Shared/Shared.csproj" />
 </Solution>

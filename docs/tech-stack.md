@@ -1,69 +1,64 @@
 # Технологический стек
 
-Кратко: **что** используется в репозитории и **почему** это уместно для high-load real-time демонстрации на .NET.
+Краткая карта технологий, которые уже реально используются в проекте.
 
-## Оглавление
+## Основной стек
 
-- [Текущие зависимости](#текущие-зависимости)
-- [Планируемые компоненты](#планируемые-компоненты)
-- [Обоснование выбора](#обоснование-выбора)
+| Технология | Версия / пакет | Роль |
+|---|---|---|
+| .NET | 10.0 | единая платформа для server, client и load tester |
+| ASP.NET Core | `Server/` | Kestrel, middleware, health, hosting |
+| SignalR | `Microsoft.AspNetCore.SignalR.*` | real-time transport, группы, broadcast, targeted delivery |
+| MessagePack | `Microsoft.AspNetCore.SignalR.Protocols.MessagePack`, `MessagePack` | компактный бинарный протокол |
+| StackExchange.Redis | через `Microsoft.AspNetCore.SignalR.StackExchangeRedis` | backplane для multi-instance fan-out |
+| Blazor WebAssembly | `highload-realtime-signalr-demo.csproj` | UI и ручной smoke-клиент |
+| MudBlazor | `9.*` | быстрый UI без ручной верстки |
+| NBomber | `LoadTester/` | self-load на реальных SignalR connections |
+| k6 | `tests/load/signalr.js` | альтернативный WebSocket/SignalR probe |
+| OpenTelemetry | `1.15.x` | метрики приложения и runtime |
+| Prometheus | compose | scrape `/metrics` |
+| Grafana | compose | dashboards |
+| PostgreSQL | compose + `Npgsql` | вспомогательная персистентность и readiness |
+| nginx | compose | локальный L7 балансировщик |
 
----
+## Почему именно так
 
-## Текущие зависимости
+### ASP.NET Core + SignalR
 
-| Технология | Версия (ориентир) | Роль |
-|------------|-------------------|------|
-| **.NET** | 10.0 | Единая платформа для клиента и будущего сервера |
-| **Blazor WebAssembly** | 10.* | SPA-клиент для визуализации real-time данных |
-| **MudBlazor** | 9.* | Быстрый и консистентный UI без верстки «с нуля» |
-| **Docker / Compose** | — | Сборка UI в образе на базе SDK + nginx; Redis в compose под будущий backplane |
+- в .NET это самый практичный способ быстро получить production-friendly WebSocket abstraction;
+- есть встроенная модель групп, reconnect semantics и поддержка scale-out;
+- хорошо читается как демо для high-load .NET backend.
 
-Файл проекта: `highload-realtime-signalr-demo.csproj`.
+### MessagePack
 
----
+- меньше payload;
+- меньше сетевого шума и аллокаций;
+- хорошо подходит для массового fan-out и synthetic load.
 
-## Планируемые компоненты
+### Redis backplane
 
-| Технология | Роль |
-|------------|------|
-| **ASP.NET Core** | Хост Kestrel, middleware, интеграция с observability |
-| **SignalR** | Абстракция над WebSocket/Long Polling, группы, масштабируемость через backplane |
-| **Redis** (StackExchange.Redis / официальный клиент) | Backplane для синхронизации сообщений между инстансами |
-| **Docker / Compose** | Воспроизводимое окружение для демо и нагрузочных прогонов |
-| **OpenTelemetry + Prometheus/Grafana** (опционально) | Метрики и трассировки под нагрузкой |
+- простой локальный scale-out path;
+- понятный pub/sub слой между инстансами;
+- позволяет показать bottleneck не только в Hub, но и во внешней шине.
 
-Решение о паре SignalR + Redis зафиксировано в [ADR 0001](../adr/0001-use-signalr-with-redis-backplane.md).
+### NBomber + k6 вместе
 
----
+- `NBomber` нужен для реалистичного SignalR-клиента и точного round-trip latency;
+- `k6` удобен как дополнительная проверка infra path и WebSocket-проб.
 
-## Обоснование выбора
+### OpenTelemetry + Prometheus + Grafana
 
-### SignalR
+- дают быстрое локальное observability-окружение;
+- позволяют видеть не только RPS, но и queue depth, rate limiting, Redis saturation, CPU и память.
 
-- Снижает сложность по сравнению с «голым» WebSocket: переподключения, протокол, клиентские SDK.
-- Официально поддерживаемый **scale-out** через backplane (Redis, Azure Service Bus и др.).
-- Хорошо знаком работодателям в .NET-экосистеме как стандарт для real-time.
+## Что сознательно упрощено
 
-### Redis как backplane
+- доменная модель минимальная;
+- PostgreSQL не участвует в hot path сообщений;
+- nginx используется как локальный L7, а не как финальный production ingress для 1M+ scale.
 
-- Низкая задержка, модель pub/sub совместима с задачей «размазать» событие по узлам.
-- Простая локальная и docker-среда для интервью и портфолио.
-- Альтернативы (Service Bus, SQL) — тяжелее для локального демо; см. ADR.
-
-### Blazor WebAssembly для UI
-
-- Демонстрирует полный .NET на клиенте; удобно подключать `Microsoft.AspNetCore.SignalR.Client` в том же языке.
-- Отделение UI от Hub позволяет нагружать Hub отдельными генераторами нагрузки без браузера.
-
-### .NET 10
-
-- Актуальный LTS-канал развития платформы на момент оформления репозитория; современные улучшения JIT и библиотек полезны под нагрузкой.
-
----
-
-## Связанные материалы
+## Связанные документы
 
 - [Архитектура](./architecture.md)
-- [Производительность](./performance.md)
 - [Запуск](./setup.md)
+- [Нагрузочные прогоны](./performance.md)
