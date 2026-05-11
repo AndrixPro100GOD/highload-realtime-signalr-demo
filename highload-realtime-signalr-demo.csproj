@@ -6,7 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
-    <DefaultItemExcludes>$(DefaultItemExcludes);Server\**;Shared\**;LoadTester\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Api\**;Server\**;Shared\**;LoadTester\**</DefaultItemExcludes>
+    <!-- Docker performance: hosted publish идёт через Server.csproj, поэтому отключаем долгий WASM linker для демо-образа. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <RunAOTCompilation>false</RunAOTCompilation>
   </PropertyGroup>
 
   <ItemGroup>

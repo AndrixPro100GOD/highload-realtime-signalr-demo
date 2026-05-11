@@ -15,12 +15,16 @@ internal sealed class SignalRClientSession : IAsyncDisposable
     private readonly ConcurrentDictionary<long, TaskCompletionSource<RealtimeEnvelope>> _awaiters = new();
     private readonly HubConnection _connection;
     private readonly string _groupName;
+    private readonly string _trafficProfile;
+    private int _disconnectRecorded;
+    private DateTimeOffset _nextPublishAtUtc = DateTimeOffset.MinValue;
     private string _serverConnectionId = string.Empty;
 
-    public SignalRClientSession(string baseUrl, string senderId, string groupName)
+    public SignalRClientSession(string baseUrl, string senderId, string groupName, string trafficProfile)
     {
         SenderId = senderId;
         _groupName = groupName;
+        _trafficProfile = trafficProfile;
 
         _connection = new HubConnectionBuilder()
             .WithUrl(new Uri(new Uri(baseUrl, UriKind.Absolute), RealtimeRoutes.HubPath), options =>
@@ -45,11 +49,16 @@ internal sealed class SignalRClientSession : IAsyncDisposable
         ? _connection.ConnectionId ?? string.Empty
         : _serverConnectionId;
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public bool IsActive => _connection.State == HubConnectionState.Connected;
+
+    public async Task StartAsync(int connectTimeoutMs, CancellationToken cancellationToken)
     {
-        await _connection.StartAsync(cancellationToken);
-        await _connection.InvokeCoreAsync("JoinGroup", [_groupName], cancellationToken);
-        var control = await _connection.InvokeCoreAsync<HubControlEvent>("GetConnectionInfo", [], cancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromMilliseconds(connectTimeoutMs));
+
+        await _connection.StartAsync(timeout.Token);
+        await _connection.InvokeCoreAsync("JoinGroup", [_groupName], timeout.Token);
+        var control = await _connection.InvokeCoreAsync<HubControlEvent>("GetConnectionInfo", [], timeout.Token);
         _serverConnectionId = control.ConnectionId;
     }
 
@@ -76,25 +85,22 @@ internal sealed class SignalRClientSession : IAsyncDisposable
         try
         {
             PublishAck ack;
-            if (sequenceNumber % batchEvery == 0)
+            // Performance tuning: targeted профиль измеряет удержание тысяч WebSocket без лавины N*N fan-out.
+            if (IsProfile("targeted"))
+            {
+                ack = await SendTargetedAsync(request, cancellationToken);
+            }
+            else if (batchEvery > 0 && sequenceNumber % batchEvery == 0)
             {
                 ack = await _connection.InvokeCoreAsync<PublishAck>("QueueGroupMessage", [request], cancellationToken);
             }
-            else if (sequenceNumber % 5 == 0)
+            else if (IsProfile("broadcast") || (IsProfile("mixed") && sequenceNumber % 5 == 0))
             {
                 ack = await _connection.InvokeCoreAsync<PublishAck>("SendBroadcast", [request], cancellationToken);
             }
-            else if (sequenceNumber % 3 == 0)
+            else if (IsProfile("mixed") && sequenceNumber % 3 == 0)
             {
-                ack = await _connection.InvokeCoreAsync<PublishAck>("SendToConnection", [new TargetedPublishRequest
-                {
-                    SenderId = request.SenderId,
-                    GroupName = request.GroupName,
-                    Payload = request.Payload,
-                    SequenceNumber = request.SequenceNumber,
-                    SentAtUtc = request.SentAtUtc,
-                    TargetConnectionId = ConnectionId
-                }], cancellationToken);
+                ack = await SendTargetedAsync(request, cancellationToken);
             }
             else
             {
@@ -129,6 +135,33 @@ internal sealed class SignalRClientSession : IAsyncDisposable
         }
     }
 
+    internal TimeSpan GetPacingDelay(int sendIntervalMs)
+    {
+        if (sendIntervalMs <= 0)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var delay = _nextPublishAtUtc - DateTimeOffset.UtcNow;
+        return delay > TimeSpan.Zero ? delay : TimeSpan.Zero;
+    }
+
+    internal void MarkPublishCompleted(int sendIntervalMs)
+    {
+        if (sendIntervalMs <= 0)
+        {
+            return;
+        }
+
+        // Performance tuning: планируем следующий publish отдельно от NBomber operation timeout.
+        _nextPublishAtUtc = DateTimeOffset.UtcNow.AddMilliseconds(sendIntervalMs);
+    }
+
+    internal bool TryMarkDisconnected()
+    {
+        return Interlocked.Exchange(ref _disconnectRecorded, 1) == 0;
+    }
+
     public async ValueTask DisposeAsync()
     {
         foreach (var waiter in _awaiters.Values)
@@ -149,6 +182,23 @@ internal sealed class SignalRClientSession : IAsyncDisposable
                 Complete(envelope);
             }
         });
+
+        _connection.Closed += exception =>
+        {
+            foreach (var waiter in _awaiters.Values.ToList())
+            {
+                if (exception is null)
+                {
+                    waiter.TrySetCanceled();
+                }
+                else
+                {
+                    waiter.TrySetException(exception);
+                }
+            }
+
+            return Task.CompletedTask;
+        };
     }
 
     private void Complete(RealtimeEnvelope envelope)
@@ -157,5 +207,23 @@ internal sealed class SignalRClientSession : IAsyncDisposable
         {
             waiter.TrySetResult(envelope);
         }
+    }
+
+    private Task<PublishAck> SendTargetedAsync(RealtimePublishRequest request, CancellationToken cancellationToken)
+    {
+        return _connection.InvokeCoreAsync<PublishAck>("SendToConnection", [new TargetedPublishRequest
+        {
+            SenderId = request.SenderId,
+            GroupName = request.GroupName,
+            Payload = request.Payload,
+            SequenceNumber = request.SequenceNumber,
+            SentAtUtc = request.SentAtUtc,
+            TargetConnectionId = ConnectionId
+        }], cancellationToken);
+    }
+
+    private bool IsProfile(string profile)
+    {
+        return string.Equals(_trafficProfile, profile, StringComparison.OrdinalIgnoreCase);
     }
 }

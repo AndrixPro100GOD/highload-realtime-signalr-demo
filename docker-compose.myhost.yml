@@ -1,0 +1,33 @@
+# docker-compose.myhost.yml
+services:
+  haproxy:
+    image: 192.168.0.90:5000/highload-realtime-signalr-demo/haproxy:local
+    build: ./docker/haproxy
+
+  nginx-l7:
+    image: 192.168.0.90:5000/highload-realtime-signalr-demo/nginx-l7:local
+    build: ./docker/nginx
+
+  realtime-svc:
+    image: 192.168.0.90:5000/highload-realtime-signalr-demo/realtime-svc:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+  api-svc:
+    image: 192.168.0.90:5000/highload-realtime-signalr-demo/api-svc:local
+    build:
+      context: .
+      dockerfile: Api/Dockerfile
+
+  video-svc:
+    image: 192.168.0.90:5000/highload-realtime-signalr-demo/video-svc:local
+    build: ./docker/video
+
+  prometheus:
+    image: 192.168.0.90:5000/highload-realtime-signalr-demo/prometheus:local
+    build: ./docker/prometheus
+
+  grafana:
+    image: 192.168.0.90:5000/highload-realtime-signalr-demo/grafana:local
+    build: ./docker/grafana

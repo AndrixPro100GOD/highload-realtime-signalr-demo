@@ -16,28 +16,34 @@ internal sealed class RealtimeServerOptions
     public BatchingOptions Batching { get; init; } = new();
 
     public HubGuardOptions HubGuard { get; init; } = new();
+
+    public HttpGuardOptions HttpGuard { get; init; } = new();
 }
 
 internal sealed class ThreadPoolTuningOptions
 {
-    public int MinWorkerThreads { get; init; } = 256;
+    public int MinWorkerThreads { get; init; } = 512;
 
     public int MinCompletionPortThreads { get; init; } = 256;
+
+    public int MaxWorkerThreads { get; init; } = 8_192;
+
+    public int MaxCompletionPortThreads { get; init; } = 1_024;
 }
 
 internal sealed class KestrelTuningOptions
 {
     public int HttpPort { get; init; } = 8080;
 
-    public long? MaxConcurrentConnections { get; init; } = 200_000;
+    public long? MaxConcurrentConnections { get; init; } = 50_000;
 
-    public long? MaxConcurrentUpgradedConnections { get; init; } = 200_000;
+    public long? MaxConcurrentUpgradedConnections { get; init; } = 50_000;
 
-    public int KeepAliveSeconds { get; init; } = 30;
+    public int KeepAliveSeconds { get; init; } = 60;
 
-    public int RequestHeadersTimeoutSeconds { get; init; } = 15;
+    public int RequestHeadersTimeoutSeconds { get; init; } = 10;
 
-    public int SocketBacklog { get; init; } = 8_192;
+    public int SocketBacklog { get; init; } = 32_768;
 
     public int? IoQueueCount { get; init; }
 }
@@ -46,13 +52,13 @@ internal sealed class SignalRTuningOptions
 {
     public int KeepAliveIntervalSeconds { get; init; } = 10;
 
-    public int ClientTimeoutIntervalSeconds { get; init; } = 30;
+    public int ClientTimeoutIntervalSeconds { get; init; } = 45;
 
-    public int HandshakeTimeoutSeconds { get; init; } = 10;
+    public int HandshakeTimeoutSeconds { get; init; } = 5;
 
-    public long MaximumReceiveMessageSizeBytes { get; init; } = 64 * 1024;
+    public long MaximumReceiveMessageSizeBytes { get; init; } = 16 * 1024;
 
-    public int StreamBufferCapacity { get; init; } = 32;
+    public int StreamBufferCapacity { get; init; } = 8;
 
     public int MaximumParallelInvocationsPerClient { get; init; } = 1;
 
@@ -84,20 +90,39 @@ internal sealed class RedisBackplaneOptions
 
 internal sealed class BatchingOptions
 {
-    public int QueueCapacity { get; init; } = 100_000;
+    public int QueueCapacity { get; init; } = 20_000;
 
-    public int MaxBatchSize { get; init; } = 256;
+    public int MaxBatchSize { get; init; } = 512;
 
-    public int FlushIntervalMs { get; init; } = 50;
+    public int FlushIntervalMs { get; init; } = 20;
 
-    public double DropThresholdRatio { get; init; } = 0.85;
+    public double DropThresholdRatio { get; init; } = 0.70;
+
+    public int MaxGroupsPerFlush { get; init; } = 256;
 }
 
 internal sealed class HubGuardOptions
 {
-    public int TokenLimit { get; init; } = 1_000;
+    public int TokenLimit { get; init; } = 120;
 
-    public int TokensPerPeriod { get; init; } = 500;
+    public int TokensPerPeriod { get; init; } = 60;
+
+    public int ReplenishmentPeriodMs { get; init; } = 1_000;
+
+    public int QueueLimit { get; init; }
+
+    public int MaxPayloadChars { get; init; } = 8 * 1024;
+}
+
+internal sealed class HttpGuardOptions
+{
+    public int DefaultPermitLimit { get; init; } = 2_000;
+
+    public int RealtimePermitLimit { get; init; } = 4_000;
+
+    public int TokenLimit { get; init; } = 10_000;
+
+    public int TokensPerPeriod { get; init; } = 5_000;
 
     public int ReplenishmentPeriodMs { get; init; } = 1_000;
 

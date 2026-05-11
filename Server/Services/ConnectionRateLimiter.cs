@@ -47,6 +47,7 @@ internal sealed class ConnectionRateLimiter : IDisposable
     {
         return new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
         {
+            // Performance tuning: per-connection token bucket не даёт одному WebSocket забить Hub invocation pipeline.
             TokenLimit = options.TokenLimit,
             TokensPerPeriod = options.TokensPerPeriod,
             QueueLimit = options.QueueLimit,

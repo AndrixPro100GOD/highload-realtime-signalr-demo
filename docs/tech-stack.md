@@ -19,7 +19,8 @@
 | Prometheus | compose | scrape `/metrics` |
 | Grafana | compose | dashboards |
 | PostgreSQL | compose + `Npgsql` | вспомогательная персистентность и readiness |
-| nginx | compose | локальный L7 балансировщик |
+| HAProxy | `haproxy:3.0-alpine` | L4 TCP entrypoint, media bypass, stats |
+| nginx | `nginx:1.27-alpine` | L7 балансировщик, WebSocket proxy, sticky, REST/media routing |
 
 ## Почему именно так
 
@@ -51,11 +52,18 @@
 - дают быстрое локальное observability-окружение;
 - позволяют видеть не только RPS, но и queue depth, rate limiting, Redis saturation, CPU и память.
 
+### HAProxy + nginx
+
+- `HAProxy` держит внешний L4-слой и не смешивает TCP edge с HTTP path-routing;
+- `nginx` остаётся L7-местом для sticky sessions, WebSocket upgrade, `/api/*` и `/video/*` fallback;
+- прямой путь `:8081 -> video-svc` показывает, как media workload можно вывести из smart L7 path.
+
 ## Что сознательно упрощено
 
 - доменная модель минимальная;
-- PostgreSQL не участвует в hot path сообщений;
-- nginx используется как локальный L7, а не как финальный production ingress для 1M+ scale.
+- PostgreSQL и `api-svc` не участвуют в hot path сообщений;
+- media в `video-svc` — демо VOD: один `sample.mp4` + `index.m3u8` с byte-range (`Accept-Ranges`), без `.ts` сегментов;
+- docker-compose service discovery проще, чем Kubernetes/Nomad deployment.
 
 ## Связанные документы
 

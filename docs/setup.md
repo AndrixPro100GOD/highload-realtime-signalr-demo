@@ -62,23 +62,45 @@ k6 run -e BASE_URL=http://localhost:8080 -e VUS=200 tests/load/signalr.js
 
 ## Docker Compose
 
-Полный локальный stack:
+Полный локальный hybrid stack:
 
 ```bash
-docker compose up --build -d --scale app=3
+docker compose up --build -d --scale realtime-svc=3 --scale nginx-l7=2 --scale api-svc=2
+```
+
+Публикация образов на отдельный Docker host описана отдельно: [docker-publish.md](./docker-publish.md).
+
+Короткие команды для host workflow:
+
+```powershell
+.\build-push-to-host.bat
+.\deploy-to-host.bat
 ```
 
 Сервисы:
 
 | Сервис | URL / порт | Назначение |
 |---|---|---|
-| `nginx` | [http://localhost:8080](http://localhost:8080) | L7 балансировщик с session affinity по `remote_addr` |
-| `app` | internal `:8080` | ASP.NET Core + SignalR |
+| `haproxy` | [http://localhost:8080](http://localhost:8080), [http://localhost:8081](http://localhost:8081), [http://localhost:8404/stats](http://localhost:8404/stats) | L4 TCP entrypoint, media bypass и stats |
+| `nginx-l7` | internal `:8080`, `:8081` | L7 маршрутизация, WebSocket, sticky, rate limiting |
+| `realtime-svc` | internal `:8080` | ASP.NET Core + SignalR + hosted Blazor UI |
+| `api-svc` | internal `:8080` | Minimal API для REST-трафика |
+| `video-svc` | internal `:8080` | Nginx media service для `/video/*` |
 | `redis` | `localhost:6379` | SignalR backplane |
 | `postgres` | `localhost:5432` | вспомогательная персистентность и readiness |
 | `prometheus` | [http://localhost:9090](http://localhost:9090) | scrape метрик |
 | `grafana` | [http://localhost:3000](http://localhost:3000) | dashboards |
 | `redis-exporter` | [http://localhost:9121/metrics](http://localhost:9121/metrics) | Redis metrics |
+
+Основные маршруты:
+
+| URL | Путь |
+|---|---|
+| [http://localhost:8080/realtime](http://localhost:8080/realtime) | UI smoke через `HAProxy -> Nginx -> realtime-svc` |
+| [http://localhost:8080/hubs/realtime](http://localhost:8080/hubs/realtime) | SignalR Hub path |
+| [http://localhost:8080/api/ping](http://localhost:8080/api/ping) | REST API через L7 |
+| [http://localhost:8080/video/index.m3u8](http://localhost:8080/video/index.m3u8) | media через L7 fallback |
+| [http://localhost:8081/video/index.m3u8](http://localhost:8081/video/index.m3u8) | media напрямую через L4 bypass |
 
 Остановить стек:
 
@@ -88,15 +110,19 @@ docker compose down --remove-orphans
 
 ## Makefile
 
-Готовые shortcut-команды:
+Готовые shortcut-команды (опционально; если на Windows нет `make`, используйте прямые команды из [testing.md](./testing.md)):
 
 ```bash
 make restore
 make build
 make run-server
+make run-api
 make compose-up
+make compose-up-hybrid APP_SCALE=5 NGINX_SCALE=2 API_SCALE=2
 make compose-scale APP_SCALE=5
 make loadtest CONNECTIONS=1000
+make loadtest-api CONNECTIONS=100
+make loadtest-video-smoke
 make k6 CONNECTIONS=200
 ```
 
@@ -110,15 +136,16 @@ make k6 CONNECTIONS=200
 | `Performance__Kestrel__HttpPort` | порт Kestrel |
 | `LOADTEST_BASEURL` | базовый URL для `LoadTester` |
 | `BASE_URL` | базовый URL для `k6` |
+| `VIDEO_URL` | URL для media smoke через `make loadtest-video-smoke` |
 
 ## Частые проблемы
 
 | Симптом | Что проверить |
 |---|---|
-| `bind: address already in use` | освободить порт `8080`, `3000`, `5432`, `6379`, `9090` |
+| `bind: address already in use` | освободить порт `8080`, `8081`, `8404`, `3000`, `5432`, `6379`, `9090` |
 | NBomber получает `operation timeout` | проверить, что сервер реально слушает `http://localhost:8080` |
-| Multi-instance 404/upgrade ошибки | проверить, что стек идёт через `nginx`, а не напрямую в `app` |
+| Multi-instance 404/upgrade ошибки | проверить, что стек идёт через `haproxy` и `nginx-l7`, а не напрямую в `realtime-svc` |
 | `/metrics` пустой | проверить `prometheus` и `OpenTelemetry` настройки |
 | Grafana пустая | подождать 5-10 секунд после старта compose и убедиться, что datasource `Prometheus` provisioned |
 
-Смежные документы: [architecture.md](./architecture.md), [performance.md](./performance.md), [tech-stack.md](./tech-stack.md).
+Смежные документы: [architecture.md](./architecture.md), [testing.md](./testing.md), [performance.md](./performance.md), [performance-tuning.md](./performance-tuning.md), [tech-stack.md](./tech-stack.md).

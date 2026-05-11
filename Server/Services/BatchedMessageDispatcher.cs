@@ -32,7 +32,8 @@ internal sealed class BatchedMessageDispatcher : BackgroundService
 
         _queue = Channel.CreateBounded<RealtimeEnvelope>(new BoundedChannelOptions(_options.QueueCapacity)
         {
-            FullMode = BoundedChannelFullMode.DropWrite,
+            // Performance tuning: Wait заставляет TryWrite возвращать false на полной очереди; это даёт честный drop/backpressure вместо скрытого роста latency.
+            FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
             SingleWriter = false,
             AllowSynchronousContinuations = false
@@ -92,6 +93,7 @@ internal sealed class BatchedMessageDispatcher : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Performance tuning: короткий flush interval уменьшает p95/p99, а batch size гасит burst без огромной очереди.
         var flushInterval = TimeSpan.FromMilliseconds(_options.FlushIntervalMs);
         var buffer = new List<RealtimeEnvelope>(_options.MaxBatchSize);
 
@@ -190,6 +192,12 @@ internal sealed class BatchedMessageDispatcher : BackgroundService
             var key = routedEnvelope.GroupName ?? string.Empty;
             if (!routed.TryGetValue(key, out var list))
             {
+                if (routed.Count >= _options.MaxGroupsPerFlush)
+                {
+                    _metrics.RecordDropped("too_many_groups_per_flush");
+                    continue;
+                }
+
                 list = [];
                 routed[key] = list;
             }

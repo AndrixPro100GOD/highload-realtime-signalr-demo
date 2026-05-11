@@ -13,6 +13,8 @@
 | `Batch queue depth` | Начинается ли backpressure и деградация |
 | `Redis commands / memory` | Насколько backplane сам становится bottleneck |
 | `process_working_set_bytes`, `process_cpu_time_seconds_total` | Давление на CPU и память процесса |
+| `api_requests_total` | REST API профиль нагрузки отдельно от SignalR |
+| `haproxy_*`, `nginx_*` | Нагрузка и ошибки на L4/L7 слоях |
 
 ## Инструменты
 
@@ -34,6 +36,8 @@
 - `Prometheus`
 - `Grafana`
 - `redis_exporter`
+- `haproxy-exporter`
+- `nginx-prometheus-exporter`
 
 ## Готовые сценарии запуска
 
@@ -47,24 +51,45 @@ dotnet run --project LoadTester/LoadTester.csproj -- --base-url=http://localhost
 ### Multi-instance, docker compose
 
 ```bash
-docker compose up --build -d --scale app=3
+docker compose up --build -d --scale realtime-svc=3 --scale nginx-l7=2 --scale api-svc=2
 dotnet run --project LoadTester/LoadTester.csproj -- --base-url=http://localhost:8080 --connections=5000 --ramp-up=120 --steady=300 --ramp-down=30 --payload-bytes=128
+```
+
+### REST API smoke/load
+
+```bash
+k6 run -e BASE_URL=http://localhost:8080 -e VUS=100 tests/load/api-smoke.js
+```
+
+### Video path smoke
+
+```bash
+curl -fsS http://localhost:8081/video/index.m3u8
+curl -fsS http://localhost:8080/video/index.m3u8
 ```
 
 ### Через Makefile
 
 ```bash
 make compose-up
-make compose-scale APP_SCALE=5
+make compose-up-hybrid APP_SCALE=5 NGINX_SCALE=2 API_SCALE=2
+make loadtest-light
+make loadtest-medium
+make loadtest-heavy
+make loadtest-fanout CONNECTIONS=1000
 make loadtest CONNECTIONS=5000 RAMP_UP=120 STEADY=300 RAMP_DOWN=30
+make loadtest-api CONNECTIONS=100
+make loadtest-video-smoke
 make k6 CONNECTIONS=200
 ```
+
+Подробный tuning после тяжёлого прогона на `5000` WebSocket: [performance-tuning.md](./performance-tuning.md).
 
 ## Уже полученные baseline-результаты
 
 Ниже результаты коротких реальных прогонов на текущей машине. Они подходят как sanity baseline после изменений, но не как «предел железа».
 
-| Дата | Конфигурация | Инстансы app | Connections | Итог | Latency | Комментарий |
+| Дата | Конфигурация | Инстансы realtime-svc | Connections | Итог | Latency | Комментарий |
 |---|---|---:|---:|---|---|---|
 | 2026-04-24 | `dotnet run`, локальный single-instance | 1 | 5 | `2300 ok`, `~230 RPS` | mean `15.67 ms`, p95 `62.94 ms` | smoke прогон без Redis backplane в `Development` |
 | 2026-04-24 | `docker compose`, nginx + Redis + Postgres + Prometheus + Grafana | 3 | 20 | `16312 ok`, `~1165 RPS` | mean `13.02 ms`, p95 `51.62 ms` | стабильный scale-out smoke через L7 и Redis |
@@ -101,6 +126,9 @@ docs/images/performance/cpu-memory.png
 6. `CPU процесса`
 7. `Redis throughput и клиенты`
 8. `Redis память`
+9. `REST API throughput`
+10. `HAProxy L4 connections`
+11. `Nginx L7 requests`
 
 ## Практические рекомендации
 

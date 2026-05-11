@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Highload.Realtime.Shared;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
+using Server.Options;
 using Server.Services;
 
 namespace Server.Hubs;
@@ -13,8 +15,11 @@ internal sealed class RealtimeHub(
     ConnectionRateLimiter rateLimiter,
     BatchedMessageDispatcher batchedDispatcher,
     NodeIdentity nodeIdentity,
+    IOptions<RealtimeServerOptions> options,
     ILogger<RealtimeHub> logger) : Hub<IRealtimeClient>
 {
+    private readonly RealtimeServerOptions _options = options.Value;
+
     /// <summary>
     /// Отдаёт клиенту его идентификатор соединения и текущее состояние инстанса.
     /// </summary>
@@ -167,7 +172,12 @@ internal sealed class RealtimeHub(
     public override async Task OnConnectedAsync()
     {
         metrics.ConnectionOpened();
-        logger.LogInformation("SignalR connection opened: {ConnectionId}", Context.ConnectionId);
+        if (logger.IsEnabled(LogLevel.Debug))
+        {
+            // Performance tuning: на тысячах WebSocket info-лог на каждый connect/disconnect сам становится bottleneck и создаёт GC pressure.
+            logger.LogDebug("SignalR connection opened: {ConnectionId}", Context.ConnectionId);
+        }
+
         await Clients.Caller.ReceiveControl(CreateControlEvent("connected", "Connection established."));
         await base.OnConnectedAsync();
     }
@@ -179,7 +189,12 @@ internal sealed class RealtimeHub(
     {
         rateLimiter.Release(Context.ConnectionId);
         metrics.ConnectionClosed();
-        logger.LogInformation("SignalR connection closed: {ConnectionId}", Context.ConnectionId);
+        if (logger.IsEnabled(LogLevel.Debug))
+        {
+            // Performance tuning: оставляем подробные connection lifecycle логи только для debug-сессий.
+            logger.LogDebug("SignalR connection closed: {ConnectionId}", Context.ConnectionId);
+        }
+
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -196,6 +211,18 @@ internal sealed class RealtimeHub(
             {
                 Accepted = false,
                 Reason = "Payload is required."
+            };
+
+            return false;
+        }
+
+        if (payload.Length > _options.HubGuard.MaxPayloadChars)
+        {
+            metrics.RecordDropped("payload_too_large");
+            rejectAck = new PublishAck
+            {
+                Accepted = false,
+                Reason = "Payload is too large for the current high-load profile."
             };
 
             return false;
